@@ -1,17 +1,57 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Web } from "sip.js";
 import { FaPhone, FaPhoneSlash } from "react-icons/fa";
 
 const CallButton = ({ phoneNumber }) => {
   const [isCalling, setIsCalling] = useState(false);
+  const [simpleUser, setSimpleUser] = useState(null);
 
-  // Fonction pour gérer le clic sur le bouton
-  const handleCallToggle = () => {
-    setIsCalling(!isCalling);
+  const sipConfig = {
+    server: "wss://pbx.zadarma.com:4443/", // WebSocket SIP server
+    aor: "sip:88198-103@pbx.zadarma.com", // URI SIP
+    username: "88198-103",
+    password: "fAg9DRtcL7",
+  };
+
+  useEffect(() => {
+    const createUserAgent = async () => {
+      const user = new Web.SimpleUser(sipConfig.server, {
+        aor: sipConfig.aor,
+        userAgentOptions: {
+          authorizationUsername: sipConfig.username,
+          authorizationPassword: sipConfig.password,
+        },
+      });
+
+      await user.connect(); // Connexion au serveur SIP
+      await user.register(); // Enregistrement de l'utilisateur
+      setSimpleUser(user);
+      console.log("SIP Client connecté !");
+    };
+
+    createUserAgent();
+
+    return () => {
+      if (simpleUser) {
+        simpleUser.disconnect();
+      }
+    };
+  }, []);
+
+  const handleCallToggle = async () => {
+    if (!simpleUser) return;
 
     if (!isCalling) {
-      console.log(`Démarrage de l'appel vers ${phoneNumber}`);
+      try {
+        await simpleUser.call(`sip:${phoneNumber}@pbx.zadarma.com`);
+        setIsCalling(true);
+      } catch (error) {
+        console.error("Échec de l'appel :", error);
+      }
     } else {
-      console.log(`Fin de l'appel vers ${phoneNumber}`);
+      await simpleUser.hangup();
+      setIsCalling(false);
+      console.log(`Appel terminé vers ${phoneNumber}`);
     }
   };
 
@@ -40,3 +80,5 @@ const CallButton = ({ phoneNumber }) => {
 };
 
 export default CallButton;
+
+
